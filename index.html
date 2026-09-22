@@ -206,7 +206,7 @@ display:flex;align-items:center;justify-content:center;font-weight:800;font-size
       <div class="diag" id="diag-conv"></div></div>
   </div>
   <div class="panel" style="margin-bottom:0"><h3>Матрица: Год → Месяц → Рекламный источник</h3>
-    <div class="cap">Клик по строке — раскрыть. Под каждым значением — изменение к предыдущему периоду (MoM). Учитывается текущий фильтр сегмента.</div>
+    <div class="cap">Клик по строке — раскрыть. Под каждым значением — изменение к предыдущему периоду (MoM). Учитывается текущий фильтр сегмента. CPLM — затраты маркетинга на 1 млн ₸ выдачи (бюджет / выдача × 1 млн).</div>
     <div style="overflow-x:auto;border-radius:10px"><table class="tree" id="tree"></table></div>
     <div class="diag" id="diag-matrix"></div></div>
   </section>
@@ -219,7 +219,7 @@ display:flex;align-items:center;justify-content:center;font-weight:800;font-size
       <div class="cap">Конверсия лид → выдача по продуктам, %. По месяцам.</div><canvas id="convProd"></canvas>
       <div class="diag" id="diag-prodconv"></div></div>
     <div class="panel" style="margin-bottom:0"><h3>Структура: Год → Месяц → Продукт</h3>
-      <div class="cap">Клик по строке — раскрыть. Под каждым значением — изменение к предыдущему периоду (MoM). Учитывается текущий фильтр сегмента.</div>
+      <div class="cap">Клик по строке — раскрыть. Под каждым значением — изменение к предыдущему периоду (MoM). Учитывается текущий фильтр сегмента. CPLM — затраты маркетинга на 1 млн ₸ выдачи (бюджет / выдача × 1 млн).</div>
       <div style="overflow-x:auto;border-radius:10px"><table class="tree" id="treeProd"></table></div>
       <div class="diag" id="diag-prodtree"></div></div>
   </section>
@@ -337,7 +337,7 @@ function budgetAgg(month,seg){if(state.emps.length||state.days.length)return 0;l
 function kpiSet(month,seg){const a=leadsAgg(month,seg);
   const b=budgetAgg(month,seg);const hasB=b>0;  // бюджет по каналам сегмента
   return{leads:a.l,issue:a.vs,conv:a.l?a.vc/a.l:null,budget:hasB?b:null,
-    check:a.vc?a.vs/a.vc:null,cpl:hasB?b/a.l:null,cac:hasB?b/a.vc:null,roas:hasB?a.vs/b:null};}
+    check:a.vc?a.vs/a.vc:null,cpl:hasB?b/a.l:null,cac:hasB?b/a.vc:null,cplm:(hasB&&a.vs>0)?b/a.vs*1e6:null};}
 // KPI defs: kind=форматирование значения, mode=pct|pp, invert=рост это плохо
 const KPI=[
  {k:'leads',t:'Лиды — всего',u:'заявок',kind:'int',mode:'pct'},
@@ -347,7 +347,7 @@ const KPI=[
  {k:'check',t:'Средний чек',u:'₸ за сделку',kind:'int',mode:'pct'},
  {k:'cpl',  t:'CPL · цена лида',u:'₸ за лид',kind:'int',mode:'pct',invert:true},
  {k:'cac',  t:'CAC · цена сделки',u:'₸ за сделку',kind:'int',mode:'pct',invert:true},
- {k:'roas', t:'ROAS',u:'× выдача / бюджет',kind:'x',mode:'pct'},
+ {k:'cplm', t:'CPLM · затраты на 1 млн выдачи',u:'₸ маркетинга на 1 млн ₸ выдачи',kind:'int',mode:'pct',invert:true},
 ];
 function valFmt(v,kind){if(v==null||isNaN(v))return '—';
   if(kind==='int')return fmt(v);
@@ -537,7 +537,8 @@ const budIdx={};for(const r of budget){((budIdx[r.m]=budIdx[r.m]||{})[r.ch])=((b
 const budIdxPr={};for(const r of budget){((budIdxPr[r.m]=budIdxPr[r.m]||{})[r.pr])=((budIdxPr[r.m]||{})[r.pr]||0)+r.b;}
 function metr(a){ // a={l,vc,vs,b}
   return {l:a.l,vc:a.vc,conv:a.l?a.vc/a.l:null,vs:a.vs,
-    check:a.vc?a.vs/a.vc:null,b:a.b,cpl:a.b>0?a.b/a.l:null,cac:a.b>0?a.b/a.vc:null};}
+    check:a.vc?a.vs/a.vc:null,b:a.b,cpl:a.b>0?a.b/a.l:null,cac:a.b>0?a.b/a.vc:null,
+    cplm:(a.b>0&&a.vs>0)?a.b/a.vs*1e6:null};} // CPLM = бюджет / выдача × 1 млн (₸ маркетинга на 1 млн ₸ выдачи)
 const fmtMoneyA=v=>v==null||v===0?'—':(v>=1e9?(v/1e9).toFixed(1)+' млрд ₸':v>=1e6?(v/1e6).toFixed(1)+' млн ₸':Math.round(v).toLocaleString('ru-RU')+' ₸');
 const fmtRub=v=>v==null?'—':Math.round(v).toLocaleString('ru-RU')+' ₸';
 const fmtInt2=v=>v==null?'—':Math.round(v).toLocaleString('ru-RU');
@@ -560,7 +561,8 @@ const COLS=[ // ключ метрики, формат, режим MoM, invert
   {k:'l',f:fmtInt2,mode:'rel'},{k:'vc',f:fmtInt2,mode:'rel'},
   {k:'conv',f:fmtP1,mode:'pp'},{k:'vs',f:fmtMoneyA,mode:'rel'},
   {k:'check',f:fmtRub,mode:'rel'},{k:'b',f:fmtMoneyA,mode:'rel'},
-  {k:'cpl',f:fmtRub,mode:'rel',invert:true},{k:'cac',f:fmtRub,mode:'rel',invert:true}];
+  {k:'cpl',f:fmtRub,mode:'rel',invert:true},{k:'cac',f:fmtRub,mode:'rel',invert:true},
+  {k:'cplm',f:fmtRub,mode:'rel',invert:true}];
 function renderTree(tableId,dimKey,hdrLabel,exclKeys){
   const seg=state.segment;const excl=new Set(exclKeys||[]);const am=AM();
   const ms={},mt={},yt={l:0,vc:0,vs:0,b:0};
@@ -579,14 +581,14 @@ function renderTree(tableId,dimKey,hdrLabel,exclKeys){
   const rowCells=(agg,prevAgg)=>{const m=metr(agg),pm=prevAgg?metr(prevAgg):null;
     return COLS.map(c=>cell(m,c.k,pm,c.mode,c.invert)).join('');};
   let h=`<thead><tr><th>${hdrLabel}</th><th>Заявки</th><th>Сделки</th><th>Конверсия</th>`
-    +'<th>Сумма выдачи</th><th>Ср. чек</th><th>Бюджет</th><th>CPL</th><th>CAC</th></tr></thead><tbody>';
+    +'<th>Сумма выдачи</th><th>Ср. чек</th><th>Бюджет</th><th>CPL</th><th>CAC</th><th>CPLM</th></tr></thead><tbody>';
   h+=`<tr class="lvl-year"><td><span class="nm"><span class="tw">▼</span><b>2026</b></span></td>${rowCells(yt,null)}</tr>`;
   [...am].reverse().forEach(m=>{const i=months.indexOf(m);const pm=prevMonth(m);
     const prevAgg=(pm&&mt[pm])?mt[pm]:null;
     h+=`<tr class="lvl-month" data-id="${m}"><td><span class="nm ind1"><span class="tw">▶</span>${mlabels[i]}</span></td>${rowCells(mt[m],prevAgg)}</tr>`;
     const items=Object.keys(ms[m]).map(k=>({k,a:ms[m][k]})).filter(x=>x.a.l>0||x.a.vs>0)
       .sort((x,y)=>y.a.vs-x.a.vs);
-    items.forEach(({k,a})=>{const pa=pm?(ms[pm][k]||null):null;
+    items.forEach(({k,a})=>{const pa=(pm&&ms[pm])?(ms[pm][k]||null):null; // пред. месяц может быть вне фильтра «Месяц»
       h+=`<tr class="lvl-src hidden" data-child="${m}"><td><span class="nm ind2">${k}</span></td>${rowCells(a,pa)}</tr>`;});});
   h+='</tbody>';
   const t=document.getElementById(tableId);t.innerHTML=h;
@@ -769,7 +771,7 @@ function renderEmpTree(){
   [...am].reverse().forEach(m=>{const i=months.indexOf(m);const pm=prevMonth(m);
     h+=`<tr class="lvl-month" data-id="${m}"><td><span class="nm ind1"><span class="tw">▶</span>${mlabels[i]}</span></td>${row(mt[m],(pm&&mt[pm])?mt[pm]:null)}</tr>`;
     const items=Object.keys(ms[m]).map(k=>({k,a:ms[m][k]})).filter(x=>x.a.l>0||x.a.vs>0).sort((x,y)=>y.a.vs-x.a.vs);
-    items.forEach(({k,a})=>{const pa=pm?(ms[pm][k]||null):null;
+    items.forEach(({k,a})=>{const pa=(pm&&ms[pm])?(ms[pm][k]||null):null; // пред. месяц может быть вне фильтра «Месяц»
       h+=`<tr class="lvl-src hidden" data-child="${m}"><td><span class="nm ind2">${k}</span></td>${row(a,pa)}</tr>`;});});
   h+='</tbody>';
   const t=document.getElementById('treeEmp');t.innerHTML=h;
